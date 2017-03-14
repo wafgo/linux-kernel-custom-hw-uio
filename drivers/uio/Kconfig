@@ -173,4 +173,10 @@ config UIO_ZYNQ_DISPARITY_COPROC
 	  This driver is developed for the calculation of a disparity map.
 	  Driver maps HW registers and parameters to userspace.
 
+config UIO_MORPH_FILTER
+	tristate "WMu AXI Morphological Filter"
+	depends on ARCH_ZYNQ || ARCH_ZYNQMP
+	help
+	  This driver is developed for the morphological filtering of grayscale images.
+	  Driver maps HW registers and parameters to userspace.
 endif

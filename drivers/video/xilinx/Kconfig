@@ -1,0 +1,27 @@
+#
+# Xilinx Video configuration
+#
+
+menuconfig XILINX_VIDEO_IP
+	tristate "Xilinx Video IP components"
+	---help---
+	  This adds support to include Xilinx Video IP components.
+
+
+config XILINX_VDMA
+	tristate "Video DMA IP"
+	depends on XILINX_VIDEO_IP
+	---help---
+	  Enables Video DMA IP component.
+
+config XILINX_SOBEL
+	tristate "SOBEL"
+	depends on XILINX_VIDEO_IP
+	---help---
+	  Enables and configure Hardware Sobel IP.
+	  
+config MORPH_FILTER
+	tristate "MORPH_FILTER"
+	depends on XILINX_VIDEO_IP
+	---help---
+	  Enables and configure Hardware Morphological Filter IP.

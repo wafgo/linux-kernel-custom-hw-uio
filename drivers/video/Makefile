@@ -3,6 +3,7 @@ obj-$(CONFIG_HDMI)                += hdmi.o
 
 obj-$(CONFIG_VT)		  += console/
 obj-$(CONFIG_LOGO)		  += logo/
+# obj-$(CONFIG_XILINX_VIDEO_IP)	+= xilinx/
 obj-y				  += backlight/
 
 obj-y				  += fbdev/
