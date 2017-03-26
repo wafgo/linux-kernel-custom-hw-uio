@@ -123,8 +123,8 @@
 			interrupts = <0 52 0x4>;
 			
 			clocks = <&clkc 15>;
-			video-ver = <720>;
-			video-hor = <1280>;
+			max-dy = <720>;
+			max-dx = <1280>;
 		};
 		
 		axi_disp_coproc@43c00000 {

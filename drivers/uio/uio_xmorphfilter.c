@@ -30,7 +30,7 @@
 #define XMORPH_IOCTL_BASE					'S'
 #define XMORPH_START						_IO(XMORPH_IOCTL_BASE, 0)
 #define XMORPH_STOP							_IO(XMORPH_IOCTL_BASE, 1)
-#define XMORPH_WAIT_FOR_COMPLETION			_IO(XMORPH_IOCTL_BASE, 2)
+#define XMORPH_SET_DIM						_IO(XMORPH_IOCTL_BASE, 2)
 
 static int xmorph_filter_dev_num;
 // 0x00 : Control signals
@@ -82,6 +82,11 @@ enum
 	VIDEO_BUF_IN = 0, VIDEO_BUF_OUT, VIDEO_BUF_CNT,
 };
 
+struct vdma_transfer_dim {
+	int dx;
+	int dy;
+};
+
 struct morph_filter_dev
 {
 	struct platform_device *pdev;
@@ -92,7 +97,7 @@ struct morph_filter_dev
 	struct dma_chan *dma_rx;
 	struct dma_chan *dma_tx;
 	dma_addr_t dma_video_addr[VIDEO_BUF_CNT];
-	u32 dx, dy;
+	u32 max_dx, max_dy;
 };
 
 static int probe_morph_filter_dt(struct morph_filter_dev* mdev)
@@ -100,18 +105,18 @@ static int probe_morph_filter_dt(struct morph_filter_dev* mdev)
 	int ret;
 	struct device_node* dev_node = mdev->pdev->dev.of_node;
 
-	ret = of_property_read_u32(dev_node, "video-hor", &mdev->dx);
+	ret = of_property_read_u32(dev_node, "max-dx", &mdev->max_dx);
 
 	if (ret < 0) {
-		mdev->dx = 1280;
-		dev_warn(&mdev->pdev->dev, "could not get video-hor from dt, falling back to %d\n", mdev->dx);
+		mdev->max_dx = 1280;
+		dev_warn(&mdev->pdev->dev, "could not get max-dx from dt, falling back to %d\n", mdev->max_dx);
 	}
 
-	ret = of_property_read_u32(dev_node, "video-ver", &mdev->dy);
+	ret = of_property_read_u32(dev_node, "max-dy", &mdev->max_dy);
 
 	if (ret < 0) {
-		mdev->dy = 720;
-		dev_warn(&mdev->pdev->dev, "could not get video-ver from dt, falling back to %d\n", mdev->dy);
+		mdev->max_dy = 720;
+		dev_warn(&mdev->pdev->dev, "could not get max-dy from dt, falling back to %d\n", mdev->max_dy);
 	}
 
 	mdev->dma_rx = dma_request_chan(&mdev->pdev->dev, "rx");
@@ -135,7 +140,7 @@ static int reserve_video_memory(struct morph_filter_dev *mdev)
 	struct resource *control_regs = platform_get_resource(mdev->pdev, IORESOURCE_MEM, 0);
 
 	/* just grayscale */
-	u32 video_buff_size = mdev->dx * mdev->dy * 1;
+	u32 video_buff_size = mdev->max_dx * mdev->max_dy * 1;
 	uio_mem->name = "xmorph-control-regs";
 	uio_mem->addr = control_regs->start;
 
@@ -165,7 +170,6 @@ static irqreturn_t xmorph_irq(int irq, struct uio_info *dev_info) {
 	u32 isr_reg;
 
 	isr_reg = readl(mdev->mem_base + XMF_ISR);
-	dev_err(&mdev->pdev->dev, "-----------------------> isr reg = 0x%x, ctrl_reg = 0x%x\n", isr_reg, readl(mdev->mem_base + XMF_AP_CTRL));
 	writel(isr_reg, mdev->mem_base + XMF_ISR);
 
 	return IRQ_HANDLED;
@@ -205,8 +209,8 @@ static int config_vdma(struct morph_filter_dev* mdev)
 
 static void init_xmorph_registers(struct morph_filter_dev *mdev)
 {
-	writel(mdev->dx, mdev->mem_base + XMF_COLS);
-	writel(mdev->dy, mdev->mem_base + XMF_ROWS);
+	writel(mdev->max_dx, mdev->mem_base + XMF_COLS);
+	writel(mdev->max_dy, mdev->mem_base + XMF_ROWS);
 	writel(XMF_AP_DONE_IRQ_EN, mdev->mem_base + XMF_GIE);
 	writel(XMF_AP_READY_IRQ_EN, mdev->mem_base + XMF_IER);
 	return;
@@ -222,36 +226,18 @@ static int xmorph_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static void dma_rx_callback(void *cookie)
+static void dma_rx_callback(void *completion)
 {
-	printk(KERN_ERR"-------------------> HELLO FROM %s\n", __func__);
+	complete(completion);
 }
 
-
-static void dma_tx_callback(void *cookie)
-{
-	printk(KERN_ERR"-------------------> HELLO FROM %s\n", __func__);
-}
-
-#if 0
-static struct timer_list my_timer;
-static int xmorph_start_transfer(struct morph_filter_dev* mdev);
-
-static void my_timer_callback( unsigned long data )
-{
-	struct morph_filter_dev *mdev =(struct morph_filter_dev *) data;
-
-	printk(KERN_ERR "my_timer_callback called (%ld), ctrl reg = 0x%x.\n", jiffies, readl(mdev->mem_base + XMF_AP_CTRL) );
-	mod_timer( &my_timer, jiffies + msecs_to_jiffies(4000) );
-
-	xmorph_start_transfer(mdev);
-}
-#endif
 static int xmorph_start_transfer(struct morph_filter_dev* mdev)
 {
 	struct dma_async_tx_descriptor *dma_tx_desc;
 	struct dma_async_tx_descriptor *dma_rx_desc;
 	dma_cookie_t dma_rx_cookie, dma_tx_cookie;
+	struct completion rx_cmp;
+	unsigned long rx_tmo = msecs_to_jiffies(5000);
 	int err;
 
 	config_vdma(mdev);
@@ -282,16 +268,35 @@ static int xmorph_start_transfer(struct morph_filter_dev* mdev)
 		return -EINVAL;
 	}
 
-	dma_tx_desc->callback = dma_tx_callback;
-	dma_tx_desc->callback_param = mdev;
-
+	init_completion(&rx_cmp);
 	dma_rx_desc->callback = dma_rx_callback;
-	dma_rx_desc->callback_param = mdev;
+	dma_rx_desc->callback_param = &rx_cmp;
 
 	dma_async_issue_pending(mdev->dma_tx);
 	dma_async_issue_pending(mdev->dma_rx);
 
 	writel(XMF_CTRL_START, mdev->mem_base + XMF_AP_CTRL);
+
+	rx_tmo = wait_for_completion_timeout(&rx_cmp, rx_tmo);
+
+	if (rx_tmo == 0) {
+		dev_err(&mdev->pdev->dev, "vdma rx timout occured\n");
+	}
+
+	return 0;
+}
+
+static int xmorph_set_dimensions(struct morph_filter_dev* mdev, struct vdma_transfer_dim* dim)
+{
+	writel(readl(mdev->mem_base + XMF_AP_CTRL) & ~XMF_CTRL_START, mdev->mem_base + XMF_AP_CTRL);
+
+	mdev->itemp->numf = dim->dy;
+	mdev->itemp->sgl[0].size = dim->dx;
+
+	writel(dim->dx, mdev->mem_base + XMF_COLS);
+	writel(dim->dy, mdev->mem_base + XMF_ROWS);
+
+	writel(readl(mdev->mem_base + XMF_AP_CTRL) | XMF_CTRL_START, mdev->mem_base + XMF_AP_CTRL);
 	return 0;
 }
 
@@ -299,6 +304,7 @@ static long xmorph_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	struct morph_filter_dev* mdev = (struct morph_filter_dev*) file->private_data;
 	int ret = 0;
+	struct vdma_transfer_dim dim;
 
 	switch (cmd) {
 	case XMORPH_START:
@@ -306,7 +312,15 @@ static long xmorph_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case XMORPH_STOP:
 		break;
-	case XMORPH_WAIT_FOR_COMPLETION:
+	case XMORPH_SET_DIM:
+		if (copy_from_user(&dim, (void *) arg, sizeof(dim))) {
+			return -EFAULT;
+		}
+		/* sanity check of the dimensions */
+		if (dim.dx > mdev->max_dx || dim.dy > mdev->max_dy || dim.dx <= 0 || dim.dy <= 0)
+			return -EFAULT;
+
+		xmorph_set_dimensions(mdev, &dim);
 		break;
 	default:
 		ret = -EINVAL;
@@ -402,21 +416,15 @@ static int morph_filter_probe(struct platform_device *pdev)
 	}
 
 	init_xmorph_registers(mdev);
-	//config_vdma(mdev);
 
 	mdev->itemp->dst_start = mdev->dma_video_addr[VIDEO_BUF_OUT];
 	mdev->itemp->src_start = mdev->dma_video_addr[VIDEO_BUF_IN];
-	mdev->itemp->numf = mdev->dy;
-	mdev->itemp->sgl[0].size = mdev->dx;
+	mdev->itemp->numf = mdev->max_dy;
+	mdev->itemp->sgl[0].size = mdev->max_dx;
 	mdev->itemp->sgl[0].icg = 0;
 	mdev->itemp->frame_size = 1;
 
 	dev_info(&pdev->dev, "successfully probed uio morphological filter\n");
-#if 0
-	xmorph_start_transfer(mdev);
-	setup_timer( &my_timer, my_timer_callback, (unsigned long) mdev );
-	mod_timer( &my_timer, jiffies + msecs_to_jiffies(2000) );
-#endif
 	return 0;
 
 err_free_mem_all:
