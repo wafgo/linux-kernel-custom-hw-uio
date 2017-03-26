@@ -1418,8 +1418,8 @@ static irqreturn_t xilinx_dma_irq_handler(int irq, void *data)
 		if (!chan->flush_on_fsync ||
 		    (errors & ~XILINX_DMA_DMASR_ERR_RECOVER_MASK)) {
 			dev_err(chan->dev,
-				"Channel %p has errors %x, cdr %x tdr %x\n",
-				chan, errors,
+				"Channel %p has errors %x, status %x, dir %d, cdr %x tdr %x\n",
+				chan, errors, status, chan->direction,
 				dma_ctrl_read(chan, XILINX_DMA_REG_CURDESC),
 				dma_ctrl_read(chan, XILINX_DMA_REG_TAILDESC));
 			chan->err = true;

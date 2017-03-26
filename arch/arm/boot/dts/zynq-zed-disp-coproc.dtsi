@@ -87,11 +87,12 @@
 			#dma-channels = <2>;
 			reg = <0x43010000 0x1000>;
 			xlnx,num-fstores = <0x3>;
+			
 			dma-channel-mm2s@43010000 {
 				compatible = "xlnx,axi-vdma-mm2s-channel";
 				interrupt-parent = <&intc>;
 				interrupts = <0 54 0x4>;
-				xlnx,datawidth = <0x40>;
+				xlnx,datawidth = <0x08>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
 			};
@@ -99,7 +100,7 @@
 				compatible = "xlnx,axi-vdma-s2mm-channel";
 				interrupt-parent = <&intc>;
 				interrupts = <0 53 0x4>;
-				xlnx,datawidth = <0x40>;
+				xlnx,datawidth = <0x08>;
 				xlnx,genlock-mode = <0x0>;
 				xlnx,include-dre = <0x0>;
 			};
@@ -116,7 +117,7 @@
 			compatible = "h_da,morph-filter-v1.0";
 			reg = <0x43c20000 0x1000>;
 			dmas = <&axi_vdma_1 0 &axi_vdma_1 1>;
-			dma-names = "rx", "tx";
+			dma-names = "tx", "rx";
 			
 			interrupt-parent = <&intc>;
 			interrupts = <0 52 0x4>;
