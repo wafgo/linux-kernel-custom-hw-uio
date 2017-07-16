@@ -260,6 +260,7 @@ static int image_filter_open(struct inode *inode, struct file *file)
 	struct generic_image_filter_dev* idev = container_of(cdev, struct generic_image_filter_dev, cdev);
 
 	printk(KERN_INFO"opening image filter IP driver from %s \n", __func__);
+
 	file->private_data = idev;
 	return 0;
 }
