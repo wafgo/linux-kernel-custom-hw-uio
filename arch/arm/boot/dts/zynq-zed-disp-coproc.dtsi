@@ -114,7 +114,7 @@
 		};
 
 		axi_morph_filter_0@43c20000 {
-			compatible = "h_da,morph-filter-v1.0";
+			compatible = "h_da,image-filter-v1.0";
 			reg = <0x43c20000 0x1000>;
 			dmas = <&axi_vdma_1 0 &axi_vdma_1 1>;
 			dma-names = "tx", "rx";
@@ -122,9 +122,12 @@
 			interrupt-parent = <&intc>;
 			interrupts = <0 52 0x4>;
 			
+			filter-name = "xmorph-dev";
+			dev-node-minor = <235>;
 			clocks = <&clkc 15>;
 			max-dy = <720>;
 			max-dx = <1280>;
+			bpp = <8>;
 		};
 		
 		axi_disp_coproc@43c00000 {
