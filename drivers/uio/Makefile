@@ -11,4 +11,4 @@ obj-$(CONFIG_UIO_MF624)         += uio_mf624.o
 obj-$(CONFIG_UIO_XILINX_APM)	+= uio_xilinx_apm.o
 obj-$(CONFIG_UIO_FSL_ELBC_GPCM)	+= uio_fsl_elbc_gpcm.o
 obj-$(CONFIG_UIO_ZYNQ_DISPARITY_COPROC)	+= uio_xlnx_disparity_coprocessor.o
-obj-$(CONFIG_UIO_MORPH_FILTER) += uio_xmorphfilter.o
+obj-$(CONFIG_UIO_GENERIC_IMAGE_FILTER) += uio_generic_image_filter.o
