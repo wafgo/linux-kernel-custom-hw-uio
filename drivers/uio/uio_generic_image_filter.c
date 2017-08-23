@@ -415,7 +415,6 @@ static int generic_image_filter_probe(struct platform_device *pdev)
 
 	idev->pdev = pdev;
 	idev->mem_base = of_iomap(pdev->dev.of_node, 0);
-
 	irq = platform_get_irq(pdev, 0);
 	if (irq  < 0) {
 		dev_err(&pdev->dev, "unable to get irq\n");
@@ -434,7 +433,6 @@ static int generic_image_filter_probe(struct platform_device *pdev)
 		goto err_free_mem_all;
 
 	reserve_video_memory(idev);
-
 	idev->info.name = idev->filter_name;
 	idev->info.version = DRIVER_VERSION;
 	idev->info.priv = idev;
@@ -446,7 +444,6 @@ static int generic_image_filter_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "unable to register UIO device for image filter: error code = %d\n", ret);
 		goto err_free_mem_all;
 	}
-
 	ret = generic_image_filter_create_cdev(idev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "unable to register character device for image filter : error code = %d\n", ret);
@@ -454,7 +451,6 @@ static int generic_image_filter_probe(struct platform_device *pdev)
 	}
 
 	init_image_filter_registers(idev);
-
 	idev->itemp->dst_start = idev->dma_video_addr[VIDEO_BUF_OUT];
 	idev->itemp->src_start = idev->dma_video_addr[VIDEO_BUF_IN];
 	idev->itemp->numf = idev->max_dy;

@@ -1,5 +1,4 @@
 / {
-
  	fpga_axi: fpga-axi@0 {
 		compatible = "simple-bus";
 		#address-cells = <0x1>;
@@ -51,8 +50,18 @@
 					};
 				};
 			};
-		};
 
+			adau1761: adau1761@3b {
+				compatible = "adi,adau1761";
+				reg = <0x3b>;
+
+				clocks = <&audio_clock>;
+				clock-names = "mclk";
+
+				#sound-dai-cells = <0>;
+			};
+		};
+		
 		axi_vdma_0: axivdma@43000000 {
 			compatible = "xlnx,axi-vdma-1.00.a";
 			#address-cells = <1>;
@@ -96,56 +105,7 @@
 				xlnx,include-dre = <0x0>;
 			};
 		};
-
-
-                axi_vdma_left_in_out: axivdma@43020000 {
-			compatible = "xlnx,axi-vdma-1.00.a";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			#dma-channels = <2>;
-			reg = <0x43020000 0x1000>;
-			xlnx,num-fstores = <0x3>;
-			/*xlnx,flush-fsync = <1>;*/
-			
-			dma-channel-mm2s@43020000 {
-				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupt-parent = <&intc>;
-				interrupts = <0 31 0x4>;
-				xlnx,datawidth = <0x08>;
-				xlnx,genlock-mode = <0x0>;
-				xlnx,include-dre = <0x0>;
-			};
-			dma-channel-s2mm@43020000 {
-				compatible = "xlnx,axi-vdma-s2mm-channel";
-				interrupt-parent = <&intc>;
-				interrupts = <0 32 0x4>;
-				xlnx,datawidth = <0x10>;
-				xlnx,genlock-mode = <0x0>;
-				xlnx,include-dre = <0x0>;
-			};
-		};
-
-                axi_vdma_right_in: axivdma@43030000 {
-			compatible = "xlnx,axi-vdma-1.00.a";
-			#address-cells = <1>;
-			#size-cells = <1>;
-			#dma-cells = <1>;
-			#dma-channels = <1>;
-			reg = <0x43030000 0x1000>;
-			xlnx,num-fstores = <0x3>;
-			
-			dma-channel-mm2s@43030000 {
-				compatible = "xlnx,axi-vdma-mm2s-channel";
-				interrupt-parent = <&intc>;
-				interrupts = <0 29 0x4>;
-				xlnx,datawidth = <0x08>;
-				xlnx,genlock-mode = <0x0>;
-				xlnx,include-dre = <0x0>;
-			};
-    
-		};
-
+		
 		hdmi_clock: axi-clkgen@79000000 {
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x79000000 0x10000>;
@@ -170,20 +130,17 @@
 			bpp = <8>;
 		};
 		
-
-		axi_stereo_matcher@43c00000 {
-			compatible = "h_da,hw-stereo-matcher";
-			reg = <0x43c00000 0x10000>;
-			dmas = <&axi_vdma_left_in_out 0 &axi_vdma_right_in 0 &axi_vdma_left_in_out 1>;
-			dma-names = "left_tx", "right_tx", "rx";
-			
+		axi_disp_coproc@43c00000 {
+			compatible = "h_da,axi-disparity-coprocessor-v1a";
+			reg = <0x43c00000 0x20000>;
 			interrupt-parent = <&intc>;
-			interrupts = <0 30 0x4>;
+			interrupts = <0 57 0x4>;
 			clocks = <&clkc 15>;
 
-			ip-name = "hw-sbm";
-			max-dx = <1280>;
-			max-dy = <720>;
+			max-image-width = <1280>;
+			max-image-height = <720>;
+			image-bpp = <24>;
+			disparity-bpp = <32>;
 		};
 
 		axi_hdmi@70e00000 {
@@ -200,6 +157,86 @@
 			};
 		};
 
+		audio_clock: audio_clock {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <12288000>;
+		};
+
+		axi_spdif_tx_0: axi-spdif-tx@0x75c00000 {
+			compatible = "adi,axi-spdif-tx-1.00.a";
+			reg = <0x75c00000 0x1000>;
+			dmas = <&dmac_s 0>;
+			dma-names = "tx";
+			clocks = <&clkc 15>, <&audio_clock>;
+			clock-names = "axi", "ref";
+
+			#sound-dai-cells = <0>;
+		};
+
+		adv7511_hdmi_snd {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "HDMI monitor";
+			simple-audio-card,widgets =
+				"Speaker", "Speaker";
+			simple-audio-card,routing =
+				"Speaker", "TMDS";
+
+			simple-audio-card,dai-link@0 {
+				format = "spdif";
+				cpu {
+					sound-dai = <&axi_spdif_tx_0>;
+					frame-master;
+					bitclock-master;
+				};
+				codec {
+					sound-dai = <&adv7511>;
+				};
+			};
+		};
+
+		axi_i2s_0: axi-i2s@0x77600000 {
+			compatible = "adi,axi-i2s-1.00.a";
+			reg = <0x77600000 0x1000>;
+			dmas = <&dmac_s 1 &dmac_s 2>;
+			dma-names = "tx", "rx";
+			clocks = <&clkc 15>, <&audio_clock>;
+			clock-names = "axi", "ref";
+
+			#sound-dai-cells = <0>;
+		};
+
+		zed_sound {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "ZED ADAU1761";
+			simple-audio-card,widgets =
+				"Microphone", "Mic In",
+				"Headphone", "Headphone Out",
+				"Line", "Line In",
+				"Line", "Line Out";
+			simple-audio-card,routing =
+				"Line Out", "LOUT",
+				"Line Out", "ROUT",
+				"Headphone Out", "LHP",
+				"Headphone Out", "RHP",
+				"Mic In", "MICBIAS",
+				"LINN", "Mic In",
+				"RINN", "Mic In",
+				"LAUX", "Line In",
+				"RAUX", "Line In";
+
+			simple-audio-card,dai-link@0 {
+				format = "i2s";
+				cpu {
+					sound-dai = <&axi_i2s_0>;
+					frame-master;
+					bitclock-master;
+				};
+				codec {
+					sound-dai = <&adau1761>;
+				};
+			};
+		};
 	};
 
 	leds {

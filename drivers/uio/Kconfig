@@ -172,6 +172,13 @@ config UIO_ZYNQ_DISPARITY_COPROC
 	help
 	  This driver is developed for the calculation of a disparity map.
 	  Driver maps HW registers and parameters to userspace.
+	  
+config UIO_ZYNQ_HW_STEREO_MATCHER
+	tristate "WMu AXI Hardware Stereo Matcher driver"
+	depends on ARCH_ZYNQ || ARCH_ZYNQMP
+	help
+	  This driver is calculating the local stereo block matching algorithm
+	  inide the PL of the Xilinx Zynq SoC
 
 config UIO_GENERIC_IMAGE_FILTER
 	tristate "WMu AXI Morphological Filter"
