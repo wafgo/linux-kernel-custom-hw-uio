@@ -202,6 +202,7 @@ static irqreturn_t sbm_irq(int irq, struct uio_info *dev_info)
 	u32 isr_reg;
 	isr_reg = readl(sbm->mem_base + SBM_ISR);
 	writel(isr_reg, sbm->mem_base + SBM_ISR);
+	writel(~SBM_CTRL_START, sbm->mem_base + SBM_AP_CTRL);
 	return IRQ_HANDLED;
 }
 
@@ -252,8 +253,8 @@ static void init_sbm_registers(struct sbm_dev *sbm)
 {
 	writel(sbm->max_dx, sbm->mem_base + SBM_COLS);
 	writel(sbm->max_dy, sbm->mem_base + SBM_ROWS);
-	//writel(SBM_AP_DONE_IRQ_EN, sbm->mem_base + SBM_GIE);
-	//writel(SBM_AP_READY_IRQ_EN, sbm->mem_base + SBM_IER);
+	writel(SBM_AP_DONE_IRQ_EN, sbm->mem_base + SBM_GIE);
+	writel(SBM_AP_READY_IRQ_EN, sbm->mem_base + SBM_IER);
 	return;
 }
 
@@ -261,7 +262,6 @@ static int sbm_open(struct inode *inode, struct file *file)
 {
 	struct cdev* cdev = inode->i_cdev;
 	struct sbm_dev* sbm = container_of(cdev, struct sbm_dev, cdev);
-
 	printk(KERN_ERR"opening hardware stereo block matcher driver from %s \n", __func__);
 
 	file->private_data = sbm;
@@ -351,6 +351,9 @@ static int sbm_start_dma_transfer(struct sbm_dev* sbm)
 	rx_tmo = wait_for_completion_timeout(&rx_cmp, rx_tmo);
 
 	if (rx_tmo == 0) {
+		dmaengine_terminate_all(sbm->dma_rx);
+		dmaengine_terminate_all(sbm->dma_tx_left);
+		dmaengine_terminate_all(sbm->dma_tx_right);
 		dev_err(&sbm->pdev->dev, "vdma rx timout occured\n");
 	}
 

@@ -1417,7 +1417,7 @@ static irqreturn_t xilinx_dma_irq_handler(int irq, void *data)
 
 		if (!chan->flush_on_fsync ||
 		    (errors & ~XILINX_DMA_DMASR_ERR_RECOVER_MASK)) {
-#if 1
+#if 0
 			dev_err(chan->dev,
 				"Channel %p has errors 0x%x, status 0x%x, dir %d, cdr %x tdr %x\n",
 				chan, errors, status, chan->direction,

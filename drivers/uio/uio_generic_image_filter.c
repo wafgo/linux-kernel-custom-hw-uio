@@ -319,6 +319,8 @@ static int image_filter_start_dma_transfer(struct generic_image_filter_dev* idev
 	rx_tmo = wait_for_completion_timeout(&rx_cmp, rx_tmo);
 
 	if (rx_tmo == 0) {
+		dmaengine_terminate_all(idev->dma_rx);
+		dmaengine_terminate_all(idev->dma_tx);
 		dev_err(&idev->pdev->dev, "vdma rx timout occured\n");
 	}
 
